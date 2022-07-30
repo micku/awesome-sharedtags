@@ -7,7 +7,8 @@
 -- Grab environment we need
 local awful = require("awful")
 local capi = {
-    screen = screen
+    screen = screen,
+    client = client
 }
 
 local sharedtags = {
@@ -66,10 +67,16 @@ end
 -- @tparam table t The tag definition table for awful.tag.add
 -- @treturn table The created tag.
 function sharedtags.add(i, t)
+   local original_screen = t.screen
+   local last_screen = capi.screen.count()
+
    t = awful.util.table.clone(t, false) -- shallow copy for modification
-   t.screen = (t.screen and t.screen <= capi.screen.count()) and t.screen or capi.screen.primary
+   t.screen = (t.screen and t.screen <= capi.screen.count()) and t.screen or last_screen -- If there are positions after the last screen, assign them to the latest
    t.sharedtagindex = i
    local tag = awful.tag.add(t.name or i, t)
+
+   -- Store the original screen so we can restore it later
+   tag.original_screen = original_screen
 
    -- If no tag is selected for this screen, then select this one.
    if not tag.screen.selected_tag then
@@ -80,6 +87,27 @@ function sharedtags.add(i, t)
    tag:connect_signal("request::screen", salvage)
 
    return tag
+end
+
+--- Restore tags per screen as initially defined on screen changes
+-- Whenever the screen geometry changes, we try to move the tags to the screen
+-- that was initially defined by configuration.
+function sharedtags.restore_screen()
+    -- Keep memory of the active tag to refocus it
+    local current_client = capi.client.focus
+
+    for _,t in ipairs(root.tags()) do
+        local original_screen_available = t.original_screen and t.original_screen <= capi.screen.count()
+        local tag_screen = original_screen_available and capi.screen[t.original_screen] or capi.screen.primary
+
+        sharedtags.movetag(t, tag_screen)
+    end
+
+    -- TODO: Focus on the last focused tag
+    -- TODO: ^ on other screens, view the first available tag
+    if current_client then
+        current_client:jump_to(false)
+    end
 end
 
 --- Create new tag objects.
@@ -112,6 +140,9 @@ function sharedtags.new(def)
             tags[t.name] = tags[i]
         end
     end
+
+    -- Try to move the tag to the original screen if the geometry changes
+    capi.screen.connect_signal("property::geometry", sharedtags.restore_screen)
 
     return tags
 end
