@@ -70,9 +70,11 @@ end
 function sharedtags.add(i, t)
    local original_screen = t.screen
    local last_screen = capi.screen.count()
+   -- TODO: Let's always use the primary screen for index 1
 
    t = awful.util.table.clone(t, false) -- shallow copy for modification
    t.screen = (t.screen and t.screen <= capi.screen.count()) and t.screen or last_screen -- If there are positions after the last screen, assign them to the latest
+
    t.sharedtagindex = i
    local tag = awful.tag.add(t.name or i, t)
 
