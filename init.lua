@@ -8,7 +8,8 @@
 local awful = require("awful")
 local capi = {
     screen = screen,
-    client = client
+    client = client,
+    root = root,
 }
 
 local sharedtags = {
@@ -227,6 +228,24 @@ function sharedtags.viewtoggle(tag, screen)
         -- Only toggle the tag unless the screen moved.
         awful.tag.viewtoggle(tag)
     end
+end
+
+function sharedtags.send_focused_tag_to_next_screen()
+    local current_tag = awful.screen.focused().selected_tag
+    local next_screen = math.min((awful.screen.focused().index + 1), capi.screen.count())
+    sharedtags.send_tag_to_screen(current_tag, next_screen)
+end
+
+function sharedtags.send_focused_tag_to_prev_screen()
+    local current_tag = awful.screen.focused().selected_tag
+    local next_screen = math.max((awful.screen.focused().index - 1), 1)
+    sharedtags.send_tag_to_screen(current_tag, next_screen)
+end
+
+function sharedtags.send_tag_to_screen(tag, screen_idx)
+    sharedtags.movetag(tag, capi.screen[screen_idx])
+    tag:view_only()
+    awful.screen.focus(tag.screen)
 end
 
 return setmetatable(sharedtags, { __call = function(...) return sharedtags.new(select(2, ...)) end })
